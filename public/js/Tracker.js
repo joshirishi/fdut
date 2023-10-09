@@ -22,14 +22,28 @@ let productAccess = 0;
 let avgTimeSpent = 0;
 let featureAdoptionRate = 0;
 
-// Function to categorize each mouse event into a grid cell
-function getCellCoordinates(x, y) {
-    const cellSize = 10; // 10x10 pixels per cell
-    return {
-        cellX: Math.floor(x / cellSize),
-        cellY: Math.floor(y / cellSize)
+// Unique Visitor Identification
+let visitorToken = localStorage.getItem('visitorToken');
+if (!visitorToken) {
+    visitorToken = generateUniqueToken(); // Implement a function to generate a unique token
+    localStorage.setItem('visitorToken', visitorToken);
+}
+
+// Navigation Path Tracking
+const navigationPath = [];
+navigationPath.push(window.location.href);
+
+// Track page navigations (if using single-page applications with client-side routing)
+// For traditional multi-page applications, the page reload will capture the new URL
+/*
+if (typeof window.history.pushState === 'function') {
+    const originalPushState = window.history.pushState;
+    window.history.pushState = function (...args) {
+        originalPushState.apply(window.history, args);
+        navigationPath.push(window.location.href);
     };
 }
+*/
 
 // Mouse Movement Tracking
 document.addEventListener('mousemove', function(event) {
@@ -102,6 +116,14 @@ window.addEventListener('beforeunload', function() {
     const pageExitTime = new Date().getTime();
     const timeSpentOnPage = pageExitTime - pageEnterTime;
 
+    // Send navigation path and drop-off data to the backend
+    const dropOffPage = navigationPath[navigationPath.length - 1];
+    sendDataToBackend({
+        visitorToken,
+        navigationPath,
+        dropOffPage
+    });
+    
     //send data to backend
     fetch('http://localhost:8000/api/track', {
         method: 'POST',
@@ -147,6 +169,12 @@ async function sendDataToBackend(data) {
     }
 }
 
+// Function to generate a unique token for visitors
+function generateUniqueToken() {
+    // This is a simple token generation method. Consider using more robust methods for larger applications.
+    return Math.random().toString(36).substr(2) + Date.now().toString(36);
+}
+
 // Send data every 5 seconds
 setInterval(() => {
     const data = {
@@ -162,42 +190,3 @@ setInterval(() => {
     mouseMovements.length = 0;
     clickPositions.length = 0;
 }, 5000);
-
-// Load heatmap.js from a CDN
-function loadHeatmapLibrary(callback) {
-    const heatmapScript = document.createElement('script');
-    heatmapScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/heatmap.js/2.0.2/heatmap.min.js'; // Loading from CDN
-    heatmapScript.onload = callback;
-    document.body.appendChild(heatmapScript);
-}
-
-// Initialize heatmap once the library is loaded
-loadHeatmapLibrary(() => {
-    const heatmapInstance = h337.create({
-        container: document.body
-    });
-
-    function convertDataForHeatmap(heatmapData) {
-        const dataPoints = [];
-        for (const [key, value] of Object.entries(heatmapData)) {
-            const [cellX, cellY] = key.split('-');
-            dataPoints.push({
-                x: cellX * 10, // Convert cell coordinates back to pixels
-                y: cellY * 10,
-                value: value
-            });
-        }
-        return dataPoints;
-    }
-
-    function updateHeatmap() {
-        const dataPoints = convertDataForHeatmap(heatmapData);
-        heatmapInstance.setData({
-            max: Math.max(...Object.values(heatmapData)),
-            data: dataPoints
-        });
-    }
-
-    // For demonstration, updating heatmap every 10 seconds
-    setInterval(updateHeatmap, 10000);
-});
