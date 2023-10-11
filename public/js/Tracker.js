@@ -51,13 +51,7 @@ document.addEventListener('mousemove', function(event) {
     const y = event.clientY;
     mouseMovements.push({ x, y });
     //send data to backend 
-    fetch('http://localhost:8000/api/track', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ eventType: 'mousemove', x, y })
-    });
+    //sendDataToBackend({ eventType: 'mousemove', x, y });
 });
 
 // Click and Rage Click Tracking
@@ -72,41 +66,22 @@ document.addEventListener('click', function(event) {
     clickPositions.push({ x, y });
     clickCount++;
     setTimeout(() => clickCount = 0, 1000);
-    if (clickCount > 5) {
-        // It's a rage click
+    // It's a rage click when its greater than 5
+    if (clickCount <= 5) {
+        //post tracking date to backend
+        sendDataToBackend({ eventType: 'click', x, y });
+    } else {
+        //track rage click event
     }
-    // Send data to the backend
-    fetch('http://localhost:8000/api/track', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ eventType: 'click', x, y })
-    });
+    
 });
 
 // Scroll Tracking
 document.addEventListener('scroll', function() {
-    const scrollDepth = window.scrollY;
-    const currentScroll = window.scrollY;
-    if (currentScroll > lastScroll) {
-        scrollDirection = 'down';
-    } else {
-        if (scrollDirection === 'down') {
-            // This is a scroll reversal
-        }
-        scrollDirection = 'up';
-    }
-    lastScroll = currentScroll;
-    
+    let scrollDepth = ($(window).scrollTop() / ($(document).height() - $(window).height())) * 100;
     //send data to backend
-    fetch('http://localhost:8000/api/track', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ eventType: 'scroll', scrollDepth })
-    });
+    scrollDepth = Math.round(scrollDepth)
+    sendDataToBackend({ eventType: 'scroll', scrollDepth });
 });
 
 // Page Navigation Tracking
@@ -123,15 +98,8 @@ window.addEventListener('beforeunload', function() {
         navigationPath,
         dropOffPage
     });
-    
     //send data to backend
-    fetch('http://localhost:8000/api/track', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ eventType: 'pageExit', timeSpentOnPage, currentPage })
-    });
+    sendDataToBackend({ eventType: 'pageExit', timeSpentOnPage, currentPage });
 });
 
 // Unique and Returning Visitors
@@ -139,15 +107,8 @@ if (localStorage.getItem('visitedBefore')) {
     newVisitor = false;
 } else {
     localStorage.setItem('visitedBefore', 'true');
-
     //send data to backend
-    fetch('http://localhost:8000/api/track', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ eventType: 'newVisitor' })
-    });
+    sendDataToBackend({ eventType: 'newVisitor' });
 }
 
 // Function to send data to the backend
