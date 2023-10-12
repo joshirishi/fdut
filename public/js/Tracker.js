@@ -24,6 +24,10 @@ let featureAdoptionRate = 0;
 let maxScrollDepth = 0;
 let lastScrollDepth = 0;
 let rapidScrollCount = 0;
+let totalButtonClicks = 0;
+let successfulButtonClicks = 0;
+const heatmapDataPoints = [];
+
 
 // Detect OS
 function detectOS() {
@@ -93,6 +97,30 @@ if (typeof window.history.pushState === 'function') {
     };
 }
 */
+// Mouse Movement Tracking for Heatmap
+
+document.addEventListener('mousemove', function(event) {
+    const x = event.clientX;
+    const y = event.clientY;
+    heatmapDataPoints.push({ x: x, y: y, value: 1 });
+});
+
+// Click and Rage Click Tracking
+document.addEventListener('click', function(event) {
+    const x = event.clientX;
+    const y = event.clientY;
+    heatmapDataPoints.push({ x: x, y: y, value: 5 }); // Assigning a higher value for clicks
+
+    clickCount++;
+    setTimeout(() => clickCount = 0, 1000);
+    if (clickCount > 5) {
+        // Track rage click event
+        sendDataToBackend({ eventType: 'rageClick', x, y });
+    }
+});
+
+/*
+
 // Mouse Movement Tracking
 document.addEventListener('mousemove', function(event) {
     const x = event.clientX;
@@ -114,6 +142,7 @@ document.addEventListener('click', function(event) {
         sendDataToBackend({ eventType: 'click', x, y });
     }
 });
+*/
 
 // Scroll Tracking
 document.addEventListener('scroll', function() {
@@ -133,10 +162,27 @@ document.addEventListener('scroll', function() {
     lastScrollDepth = window.scrollY;
 });
 
-// Page Navigation Tracking
+// Button Tracking Logic
+document.querySelectorAll('button, a.button').forEach(button => {
+    button.addEventListener('click', function() {
+        totalButtonClicks++;
+
+        // Check for the desired outcome after a delay (e.g., navigation to a specific page)
+        setTimeout(() => {
+            if (currentPage.includes('/products') && button.classList.contains('buy')) {
+                successfulButtonClicks++;
+            }
+            taskSuccessRate = (successfulButtonClicks / totalButtonClicks) * 100;
+        }, 1000); // Adjust the delay as needed
+    });
+});
+
+// update Page Navigation Tracking
 window.addEventListener('beforeunload', function() {
+    lastPage = currentPage;
     const pageExitTime = new Date().getTime();
     const timeSpentOnPage = pageExitTime - pageEnterTime;
+    avgTimeSpent = (avgTimeSpent + timeSpentOnPage) / 2; // Update average time spent
     sendDataToBackend({
         eventType: 'pageExit',
         timeSpentOnPage,
@@ -202,14 +248,38 @@ function generateUniqueToken() {
     return Math.random().toString(36).substr(2) + Date.now().toString(36);
 }
 
-// Send data every 5 seconds
+// Modified Function to Send data every 5 seconds
 setInterval(() => {
     const data = {
-        mouseMovements,
-        clickPositions,
-        heatmapData
+        heatmapData: heatmapDataPoints
     };
     sendDataToBackend(data);
-    mouseMovements.length = 0;
-    clickPositions.length = 0;
+    heatmapDataPoints.length = 0;
 }, 5000);
+
+// Function to load the form script and display the form
+function loadAndDisplayForm() {
+    const script = document.createElement('script');
+    script.src = 'path_to_your_formGenerator.js'; // Replace with the actual path
+    script.onload = function() {
+        // Define form parameters
+        const formParams = {
+            fields: ['name', 'email', 'feedback'],
+            labels: ['Name', 'Email', 'Your Feedback'],
+            buttonText: 'Submit Feedback'
+        };
+        // Call the function from formGenerator.js to generate the form
+        window.generateForm(formParams);
+    };
+    document.body.appendChild(script);
+}
+
+// Sample trigger: Display the form when the user clicks on a "Buy" button on the products page
+if (window.location.href.includes('/products') && !localStorage.getItem('feedbackFormDisplayed')) {
+    document.addEventListener('click', function(event) {
+        if (event.target && event.target.innerText === 'Buy') {
+            loadAndDisplayForm();
+            localStorage.setItem('feedbackFormDisplayed', 'true'); // Ensure the form is displayed only once
+        }
+    });
+}
