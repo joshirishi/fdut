@@ -1,3 +1,7 @@
+// Include the pako library for compression
+const script = document.createElement('script');
+
+
 // Initialize tracking variables
 const mouseMovements = [];
 const clickPositions = [];
@@ -28,6 +32,9 @@ let totalButtonClicks = 0;
 let successfulButtonClicks = 0;
 const heatmapDataPoints = [];
 
+script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pako/2.0.3/pako.min.js';
+document.body.appendChild(script);
+
 
 // Detect OS
 function detectOS() {
@@ -56,6 +63,7 @@ const windowSize = {
     height: window.innerHeight
 };
 
+
 // Modified Unique and Returning Visitors
 if (localStorage.getItem('visitedBefore')) {
     newVisitor = false;
@@ -73,14 +81,6 @@ if (localStorage.getItem('visitedBefore')) {
         }
     });
 }
-/*
-// Old Unique Visitor Identification
-let visitorToken = localStorage.getItem('visitorToken');
-if (!visitorToken) {
-    visitorToken = generateUniqueToken();  // Implement a function to generate a unique token
-    localStorage.setItem('visitorToken', visitorToken);
-}
-*/
 
 // Navigation Path Tracking
 const navigationPath = [];
@@ -97,27 +97,96 @@ if (typeof window.history.pushState === 'function') {
     };
 }
 */
-// Mouse Movement Tracking for Heatmap
+// again added from previous version:: Load heatmap.js from a CDN
 
-document.addEventListener('mousemove', function(event) {
-    const x = event.clientX;
-    const y = event.clientY;
-    heatmapDataPoints.push({ x: x, y: y, value: 1 });
-});
+// Load heatmap.js from a CDN but the I get an error PayloadTooLargeError: request entity too large in mongodb
+/*
+function loadHeatmapLibrary(callback) {
+    const heatmapScript = document.createElement('script');
+    heatmapScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/heatmap.js/2.0.2/heatmap.min.js'; // Loading from CDN
+    heatmapScript.onload = callback;
+    document.body.appendChild(heatmapScript);
+}
 
-// Click and Rage Click Tracking
-document.addEventListener('click', function(event) {
-    const x = event.clientX;
-    const y = event.clientY;
-    heatmapDataPoints.push({ x: x, y: y, value: 5 }); // Assigning a higher value for clicks
-
-    clickCount++;
-    setTimeout(() => clickCount = 0, 1000);
-    if (clickCount > 5) {
-        // Track rage click event
-        sendDataToBackend({ eventType: 'rageClick', x, y });
+loadHeatmapLibrary(function() {
+    const heatmapInstance = h337.create({
+        container: document.body,
+        visible: false  // Ensuring heatmap is not rendered on the site
+    });
+    
+    function convertDataForHeatmap(heatmapData) {
+        const dataPoints = [];
+        for (const [key, value] of Object.entries(heatmapData)) {
+            const [cellX, cellY] = key.split('-');
+            dataPoints.push({
+                x: cellX * 10, // Convert cell coordinates back to pixels
+                y: cellY * 10,
+                value: value
+            });
+        }
+        return dataPoints;
     }
-});
+
+    function updateHeatmap() {
+        const dataPoints = convertDataForHeatmap(heatmapData);
+        heatmapInstance.setData({
+            max: Math.max(...Object.values(heatmapData)),
+            data: dataPoints
+        });
+    }
+    let lastRecordedTime = 0;
+
+    document.addEventListener('mousemove', function(event) {
+        const currentTime = new Date().getTime();
+        if (currentTime - lastRecordedTime > 100) { // 100ms delay between recordings
+            const x = event.clientX;
+            const y = event.clientY;
+
+            // Add data for heatmap
+            heatmapInstance.addData({
+                x: x,
+                y: y,
+                value: 1
+            });
+
+            lastRecordedTime = currentTime;
+        }
+    });
+
+*/
+    document.addEventListener('click', function(event) {
+        const x = event.clientX;
+        const y = event.clientY;
+/*    
+        // Add data for heatmap :addind this makes size big apparantly
+        heatmapInstance.addData({
+            x: x,
+            y: y,
+            value: 1
+        }); */
+
+        clickCount++;
+        setTimeout(function() {
+            clickCount = 0;
+        }, 1000);
+        if (clickCount > 5) {
+            // Track rage click event
+            sendDataToBackend({ eventType: 'rageClick', x, y });
+        } else {
+            sendDataToBackend({ eventType: 'click', x, y });
+        }
+    });
+
+    // For demonstration, updating heatmap every 10 seconds
+    setInterval(updateHeatmap, 10000);
+    setInterval(() => {
+        const data = {
+            heatmapDataURL: heatmapInstance.getDataURL()
+        };
+        sendDataToBackend(data);
+    }, 5000);
+//});
+
 
 /*
 
@@ -191,7 +260,6 @@ window.addEventListener('beforeunload', function() {
     });
 });
 
-// Modified Function to send data to the backend
 async function sendDataToBackend(data) {
     // If it's a returning visitor, remove the redundant data
     if (!newVisitor) {
@@ -201,13 +269,17 @@ async function sendDataToBackend(data) {
         delete data.windowSize;
     }
 
+    // Compress the data using pako
+    const compressedData = pako.gzip(JSON.stringify(data));
+
     try {
         const response = await fetch('http://localhost:8000/api/track', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Content-Encoding': 'gzip' // Indicate that the content is compressed
             },
-            body: JSON.stringify(data),
+            body: compressedData,
         });
 
         if (!response.ok) {
@@ -217,6 +289,7 @@ async function sendDataToBackend(data) {
         console.error('Error sending data:', error);
     }
 }
+
 /*
 // Old Function to send data to the backend
 async function sendDataToBackend(data) {
@@ -248,15 +321,7 @@ function generateUniqueToken() {
     return Math.random().toString(36).substr(2) + Date.now().toString(36);
 }
 
-// Modified Function to Send data every 5 seconds
-setInterval(() => {
-    const data = {
-        heatmapData: heatmapDataPoints
-    };
-    sendDataToBackend(data);
-    heatmapDataPoints.length = 0;
-}, 5000);
-
+/*
 // Function to load the form script and display the form
 function loadAndDisplayForm() {
     const script = document.createElement('script');
@@ -281,5 +346,5 @@ if (window.location.href.includes('/products') && !localStorage.getItem('feedbac
             loadAndDisplayForm();
             localStorage.setItem('feedbackFormDisplayed', 'true'); // Ensure the form is displayed only once
         }
-    });
-}
+    });}
+*/
