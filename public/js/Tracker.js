@@ -26,11 +26,13 @@ let lastScrollDepth = 0;
 let rapidScrollCount = 0;
 let totalButtonClicks = 0;
 let successfulButtonClicks = 0;
+let rapidClickCount = 0;
 const heatmapDataPoints = [];
 // Variables for tracking metrics
 let goalCompleted = false;
 let pagesVisited = 0;
 let bounced = true; // Assume a bounce until proven otherwise
+let activeInteraction = false;
 
 // Detect OS
 function detectOS() {
@@ -112,6 +114,24 @@ window.addEventListener('beforeunload', function() {
     if (bounced && pagesVisited === 1) {
         sendDataToBackend({ eventType: 'bounce' });
     }
+});
+// Track button and link clicks
+document.querySelectorAll('a, button').forEach(element => {
+    element.addEventListener('click', function() {
+        activeInteraction = true;
+    });
+});
+
+// Track form interactions
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+        activeInteraction = true;
+    });
+});
+
+// Track scrolling as an active interaction
+window.addEventListener('scroll', function() {
+    activeInteraction = true;
 });
 /*
 // Old Unique Visitor Identification
