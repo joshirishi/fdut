@@ -27,7 +27,10 @@ let rapidScrollCount = 0;
 let totalButtonClicks = 0;
 let successfulButtonClicks = 0;
 const heatmapDataPoints = [];
-
+// Variables for tracking metrics
+let goalCompleted = false;
+let pagesVisited = 0;
+let bounced = true; // Assume a bounce until proven otherwise
 
 // Detect OS
 function detectOS() {
@@ -73,6 +76,43 @@ if (localStorage.getItem('visitedBefore')) {
         }
     });
 }
+// Track initial page load (start of the user journey)
+sendDataToBackend({ eventType: 'journeyStarted' });
+pagesVisited++;
+
+// Track goal completions
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+        goalCompleted = true;
+        bounced = false;
+    });
+});
+document.querySelectorAll('a.button').forEach(button => {
+    button.addEventListener('click', function() {
+        goalCompleted = true;
+        bounced = false;
+    });
+});
+
+// Track page navigations to count the number of pages visited
+if (typeof window.history.pushState === 'function') {
+    const originalPushState = window.history.pushState;
+    window.history.pushState = function (...args) {
+        originalPushState.apply(window.history, args);
+        pagesVisited++;
+        bounced = false;
+    };
+}
+
+// Drop Off and Bounce Rate Tracking
+window.addEventListener('beforeunload', function() {
+    if (!goalCompleted && pagesVisited > 2) {
+        sendDataToBackend({ eventType: 'dropOff' });
+    }
+    if (bounced && pagesVisited === 1) {
+        sendDataToBackend({ eventType: 'bounce' });
+    }
+});
 /*
 // Old Unique Visitor Identification
 let visitorToken = localStorage.getItem('visitorToken');
