@@ -59,11 +59,14 @@ const windowSize = {
 // Modified Unique and Returning Visitors
 if (localStorage.getItem('visitedBefore')) {
     newVisitor = false;
+    sendDataToBackend({
+        eventType: 'visitor',
+    });
 } else {
     localStorage.setItem('visitedBefore', 'true');
     // Send data for new visitor
     sendDataToBackend({
-        eventType: 'newVisitor',
+        eventType: 'new-visitor',
         os,
         deviceType,
         origin,
@@ -98,7 +101,6 @@ if (typeof window.history.pushState === 'function') {
 }
 */
 // Mouse Movement Tracking for Heatmap
-
 document.addEventListener('mousemove', function(event) {
     const x = event.clientX;
     const y = event.clientY;
@@ -115,34 +117,11 @@ document.addEventListener('click', function(event) {
     setTimeout(() => clickCount = 0, 1000);
     if (clickCount > 5) {
         // Track rage click event
-        sendDataToBackend({ eventType: 'rageClick', x, y });
+        sendDataToBackend({ eventType: 'rage-click', x, y });
+
+        //QUESTION: Should we mark this on the heatmap too? or maybe another type of heat map?
     }
 });
-
-/*
-
-// Mouse Movement Tracking
-document.addEventListener('mousemove', function(event) {
-    const x = event.clientX;
-    const y = event.clientY;
-    mouseMovements.push({ x, y });
-});
-
-// Click and Rage Click Tracking
-document.addEventListener('click', function(event) {
-    const x = event.clientX;
-    const y = event.clientY;
-    clickPositions.push({ x, y });
-    clickCount++;
-    setTimeout(() => clickCount = 0, 1000);
-    if (clickCount > 5) {
-        // Track rage click event
-        sendDataToBackend({ eventType: 'rageClick', x, y });
-    } else {
-        sendDataToBackend({ eventType: 'click', x, y });
-    }
-});
-*/
 
 // Scroll Tracking
 document.addEventListener('scroll', function() {
@@ -153,7 +132,7 @@ document.addEventListener('scroll', function() {
     if (Math.abs(lastScrollDepth - window.scrollY) > 100) {
         rapidScrollCount++;
         if (rapidScrollCount > 5) {
-            sendDataToBackend({ eventType: 'confusedScrolling' });
+            sendDataToBackend({ eventType: 'confused-scrolling' });
             rapidScrollCount = 0;
         }
     } else {
@@ -162,6 +141,7 @@ document.addEventListener('scroll', function() {
     lastScrollDepth = window.scrollY;
 });
 
+//QUESTION - where are we using taskSuccessRate
 // Button Tracking Logic
 document.querySelectorAll('button, a.button').forEach(button => {
     button.addEventListener('click', function() {
@@ -184,7 +164,7 @@ window.addEventListener('beforeunload', function() {
     const timeSpentOnPage = pageExitTime - pageEnterTime;
     avgTimeSpent = (avgTimeSpent + timeSpentOnPage) / 2; // Update average time spent
     sendDataToBackend({
-        eventType: 'pageExit',
+        eventType: 'page-exit',
         timeSpentOnPage,
         currentPage,
         maxScrollDepth
@@ -217,32 +197,7 @@ async function sendDataToBackend(data) {
         console.error('Error sending data:', error);
     }
 }
-/*
-// Old Function to send data to the backend
-async function sendDataToBackend(data) {
-    try {
-        const response = await fetch('http://localhost:8000/api/track', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                ...data,
-                os,
-                deviceType,
-                origin,
-                windowSize
-            }),
-        });
 
-        if (!response.ok) {
-            console.error('Failed to send data:', response);
-        }
-    } catch (error) {
-        console.error('Error sending data:', error);
-    }
-}
-*/
 // Function to generate a unique token for visitors
 function generateUniqueToken() {
     return Math.random().toString(36).substr(2) + Date.now().toString(36);
@@ -253,8 +208,11 @@ setInterval(() => {
     const data = {
         heatmapData: heatmapDataPoints
     };
-    sendDataToBackend(data);
-    heatmapDataPoints.length = 0;
+    if (heatmapDataPoints.length){
+        sendDataToBackend(data);
+        heatmapDataPoints.length = 0;
+    }
+    
 }, 5000);
 
 // Function to load the form script and display the form
