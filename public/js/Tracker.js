@@ -7,6 +7,8 @@ let lastScroll = 0;
 let scrollDirection = 'down';
 let lastPage = null;
 let currentPage = window.location.href;
+let pathname = window.location.pathname;
+let domain = window.location.hostname;
 let pageEnterTime = new Date().getTime();
 let uniqueVisitors = new Set();
 let newVisitor = true;
@@ -187,7 +189,13 @@ async function sendDataToBackend(data) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(data),
+            body: JSON.stringify({
+                ...data,
+                location:{
+                    domain: domain,
+                    page: pathname
+                }
+            }),
         });
 
         if (!response.ok) {
