@@ -1,3 +1,4 @@
+import { record } from 'rrweb';
 // Initialize tracking variables
 const mouseMovements = [];
 const clickPositions = [];
@@ -26,8 +27,13 @@ let lastScrollDepth = 0;
 let rapidScrollCount = 0;
 let totalButtonClicks = 0;
 let successfulButtonClicks = 0;
+let rapidClickCount = 0;
 const heatmapDataPoints = [];
-
+// Variables for tracking metrics
+let goalCompleted = false;
+let pagesVisited = 0;
+let bounced = true; // Assume a bounce until proven otherwise
+let activeInteraction = false;
 
 // Detect OS
 function detectOS() {
@@ -59,7 +65,7 @@ const windowSize = {
 // Modified Unique and Returning Visitors
 if (localStorage.getItem('visitedBefore')) {
     newVisitor = false;
-    sendDataToBackend({
+sendDataToBackend({
         eventType: 'visitor',
     });
 } else {
@@ -76,6 +82,75 @@ if (localStorage.getItem('visitedBefore')) {
         }
     });
 }
+
+record({
+  emit(event) {
+    // Send the event data to your server
+    fetch('/api/rrweb-record', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+  },
+});
+
+// Track initial page load (start of the user journey)
+sendDataToBackend({ eventType: 'journeyStarted' });
+pagesVisited++;
+
+// Track goal completions
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+        goalCompleted = true;
+        bounced = false;
+    });
+});
+document.querySelectorAll('a.button').forEach(button => {
+    button.addEventListener('click', function() {
+        goalCompleted = true;
+        bounced = false;
+    });
+});
+
+// Track page navigations to count the number of pages visited
+if (typeof window.history.pushState === 'function') {
+    const originalPushState = window.history.pushState;
+    window.history.pushState = function (...args) {
+        originalPushState.apply(window.history, args);
+        pagesVisited++;
+        bounced = false;
+    };
+}
+
+// Drop Off and Bounce Rate Tracking
+window.addEventListener('beforeunload', function() {
+    if (!goalCompleted && pagesVisited > 2) {
+        sendDataToBackend({ eventType: 'dropOff' });
+    }
+    if (bounced && pagesVisited === 1) {
+        sendDataToBackend({ eventType: 'bounce' });
+    }
+});
+// Track button and link clicks
+document.querySelectorAll('a, button').forEach(element => {
+    element.addEventListener('click', function() {
+        activeInteraction = true;
+    });
+});
+
+// Track form interactions
+document.querySelectorAll('form').forEach(form => {
+    form.addEventListener('submit', function() {
+        activeInteraction = true;
+    });
+});
+
+// Track scrolling as an active interaction
+window.addEventListener('scroll', function() {
+    activeInteraction = true;
+});
 /*
 // Old Unique Visitor Identification
 let visitorToken = localStorage.getItem('visitorToken');
@@ -101,6 +176,7 @@ if (typeof window.history.pushState === 'function') {
 }
 */
 // Mouse Movement Tracking for Heatmap
+
 document.addEventListener('mousemove', function(event) {
     const x = event.clientX;
     const y = event.clientY;
@@ -141,7 +217,6 @@ document.addEventListener('scroll', function() {
     lastScrollDepth = window.scrollY;
 });
 
-//QUESTION - where are we using taskSuccessRate
 // Button Tracking Logic
 document.querySelectorAll('button, a.button').forEach(button => {
     button.addEventListener('click', function() {
@@ -208,10 +283,10 @@ setInterval(() => {
     const data = {
         heatmapData: heatmapDataPoints
     };
-    if (heatmapDataPoints.length){
-        sendDataToBackend(data);
-        heatmapDataPoints.length = 0;
-    }
+if (heatmapDataPoints.length){
+    sendDataToBackend(data);
+    heatmapDataPoints.length = 0;
+}
     
 }, 5000);
 
