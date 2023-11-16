@@ -10,4 +10,3 @@
   // Once tracker.js is loaded, load session_rec.js
   loadScript('http://localhost:3000/js/session_rec.js');
 });
-})();

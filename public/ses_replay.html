@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Replay</title>
+</head>
+<body>
+  <div id="replay"></div>
+  <script src="path_to_rrweb-player.js"></script>
+  <script>
+    fetch('/api/rrweb-replay')
+      .then(response => response.json())
+      .then(events => {
+        new rrwebPlayer({
+          target: document.getElementById('replay'), // specify the target element
+          props: {
+            events,
+            width: 800, // You can adjust the size
+            height: 600,
+          },
+        });
+      })
+      .catch(error => console.error('Error fetching rrweb events:', error));
+  </script>
+</body>
+</html>

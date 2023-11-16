@@ -78,6 +78,22 @@ if (localStorage.getItem('visitedBefore')) {
         }
     });
 }
+
+import { record } from 'rrweb';
+
+record({
+  emit(event) {
+    // Send the event data to your server
+    fetch('/api/rrweb-record', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+  },
+});
+
 // Track initial page load (start of the user journey)
 sendDataToBackend({ eventType: 'journeyStarted' });
 pagesVisited++;
